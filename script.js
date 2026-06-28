@@ -124,6 +124,12 @@ async function likeIdea(id, button){
 
     span.textContent = current + 1;
 
+    const idea = ideas.find(i => i.id === id);
+
+    if (idea) {
+        idea.likes++;
+    }
+
     button.disabled = true;
 
     button.style.opacity = .7;
@@ -142,10 +148,18 @@ async function likeIdea(id, button){
 
     if(!result.success){
 
+        // Remet le compteur affiché
         span.textContent = current;
 
-        button.disabled = false;
+        // Remet aussi la valeur dans le tableau ideas
+        const idea = ideas.find(i => i.id === id);
 
+        if(idea){
+            idea.likes--;
+        }
+
+        // Réactive le bouton
+        button.disabled = false;
         button.style.opacity = 1;
 
         localStorage.removeItem("liked_"+id);
@@ -155,5 +169,6 @@ async function likeIdea(id, button){
     }
 
 }
+
 
 init();
