@@ -211,3 +211,104 @@ header p{
     font-size:18px;
 
 }
+/* ---------------- MODAL ---------------- */
+
+.modal{
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(0,0,0,.55);
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    z-index:999;
+
+    opacity:1;
+
+    transition:.25s;
+
+}
+
+.hidden{
+
+    display:none;
+
+}
+
+.modal-content{
+
+    width:90%;
+
+    max-width:700px;
+
+    background:white;
+
+    border-radius:22px;
+
+    padding:35px;
+
+    position:relative;
+
+    animation:pop .25s ease;
+
+}
+
+@keyframes pop{
+
+    from{
+
+        transform:scale(.85);
+
+        opacity:0;
+
+    }
+
+    to{
+
+        transform:scale(1);
+
+        opacity:1;
+
+    }
+
+}
+
+#closeModal{
+
+    position:absolute;
+
+    top:20px;
+
+    right:25px;
+
+    font-size:30px;
+
+    cursor:pointer;
+
+}
+
+.modal-content h2{
+
+    margin-top:0;
+
+}
+
+.modal-content p{
+
+    line-height:1.6;
+
+    color:#444;
+
+}
+
+.section{
+
+    margin-top:25px;
+
+}

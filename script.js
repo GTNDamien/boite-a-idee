@@ -98,6 +98,14 @@ function renderIdeas(){
 
         `;
 
+        card.onclick = (e)=>{
+
+            if(e.target.tagName==="BUTTON") return;
+
+            openIdea(idea);
+
+        };
+
         container.appendChild(card);
 
     });
@@ -172,3 +180,81 @@ async function likeIdea(id, button){
 
 
 init();
+
+function openIdea(idea){
+
+    document.getElementById("modal").classList.remove("hidden");
+
+    document.getElementById("modalBody").innerHTML=`
+
+        <h2>${idea.titre}</h2>
+
+        <div class="badge">
+
+            ${idea.categorie}
+
+        </div>
+
+        <div class="section">
+
+            <h3>📝 Description</h3>
+
+            <p>${idea.description}</p>
+
+        </div>
+
+        <div class="section">
+
+            <h3>🚀 Pourquoi cette idée ?</h3>
+
+            <p>${idea.pourquoi}</p>
+
+        </div>
+
+        <div class="section">
+
+            <h3>👤 Auteur</h3>
+
+            <p>${idea.auteur}</p>
+
+        </div>
+
+        <div class="section">
+
+            <button
+            class="likeButton"
+            onclick="likeIdea(${idea.id},this)">
+
+            ❤️ ${idea.likes}
+
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+document
+.getElementById("closeModal")
+.onclick=()=>{
+
+    document
+    .getElementById("modal")
+    .classList
+    .add("hidden");
+
+};
+
+window.onclick=(e)=>{
+
+    if(e.target.id==="modal"){
+
+        document
+        .getElementById("modal")
+        .classList
+        .add("hidden");
+
+    }
+
+};
