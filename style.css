@@ -115,3 +115,37 @@ header p{
     font-size:12px;
 
 }
+
+.likeButton{
+
+    margin-top:20px;
+
+    border:none;
+
+    background:#1976d2;
+
+    color:white;
+
+    padding:12px 18px;
+
+    border-radius:12px;
+
+    cursor:pointer;
+
+    font-size:16px;
+
+    transition:.25s;
+
+}
+
+.likeButton:hover{
+
+    transform:scale(1.05);
+
+}
+
+.likeButton:disabled{
+
+    cursor:default;
+
+}
