@@ -353,4 +353,36 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-init();
+async function refreshIdeas() {
+  try {
+    const response = await fetch(API_URL + "?action=ideas");
+    const fresh = await response.json();
+
+    fresh.forEach(freshIdea => {
+      const local = ideas.find(i => i.id === freshIdea.id);
+      if (local) local.likes = freshIdea.likes;
+    });
+
+    updateStats();
+    renderIdeas();
+  } catch (e) {
+    console.warn("Rafraîchissement échoué", e);
+  }
+}
+
+async function init() {
+  const response = await fetch(API_URL + "?action=ideas");
+  ideas = await response.json();
+  updateStats();
+  renderCategories();
+  renderIdeas();
+  bindSortButtons();
+
+  // Rafraîchit toutes les 30 secondes (sessions longues)
+  setInterval(refreshIdeas, 30_000);
+
+  // Rafraîchit aussi au retour sur l'onglet
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshIdeas();
+  });
+}
