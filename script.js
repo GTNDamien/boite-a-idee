@@ -112,8 +112,7 @@ function renderIdeas() {
     const voted = hasVoted(idea.id);
     const card = document.createElement("div");
     card.className = "card" + (voted ? " voted" : "");
-    // Stocker l'id sur la card pour pouvoir la retrouver facilement
-    card.dataset.ideaId = idea.id;
+    card.dataset.ideaId = String(idea.id);
 
     card.innerHTML = `
       <div class="card-header">
@@ -126,7 +125,6 @@ function renderIdeas() {
         <span class="card-date">${formatDate(idea.date)}</span>
         <button
           class="likeButton ${voted ? "voted-btn" : ""}"
-          onclick="event.stopPropagation(); handleCardVote(${idea.id}, this)"
           aria-label="${voted ? "Retirer mon vote" : "Voter pour cette idée"}"
         >
           ${voted ? "✔ Voté" : "❤️ J'aime"}
@@ -135,10 +133,18 @@ function renderIdeas() {
       </div>
     `;
 
-    card.onclick = () => openIdea(idea);
+    // Bouton vote — listener attaché proprement, sans inline onclick
+    const btn = card.querySelector(".likeButton");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      handleCardVote(idea.id, btn);
+    });
+
+    card.addEventListener("click", () => openIdea(idea));
     container.appendChild(card);
   });
 }
+
 
 /* ============================================================
    UTILITAIRES UI — mise à jour d'un bouton de CARD
@@ -165,12 +171,15 @@ function getCardButton(id) {
    GESTIONNAIRE VOTE DEPUIS UNE CARD
 ============================================================ */
 async function handleCardVote(id, button) {
+  // Désactive le bouton pendant la requête pour éviter les double-clics
+  button.disabled = true;
   if (hasVoted(id)) {
     const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
     if (confirmed) await doUnlike(id);
   } else {
     await doLike(id);
   }
+  button.disabled = false;
 }
 
 /* ============================================================
@@ -355,7 +364,7 @@ function escHtml(str) {
 
 async function refreshIdeas() {
   try {
-    const response = await fetch(API_URL + "?action=ideas");
+    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
     const fresh = await response.json();
 
     fresh.forEach(freshIdea => {
@@ -371,17 +380,15 @@ async function refreshIdeas() {
 }
 
 async function init() {
-  const response = await fetch(API_URL + "?action=ideas");
+  const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
   ideas = await response.json();
   updateStats();
   renderCategories();
   renderIdeas();
   bindSortButtons();
 
-  // Rafraîchit toutes les 30 secondes (sessions longues)
   setInterval(refreshIdeas, 30_000);
 
-  // Rafraîchit aussi au retour sur l'onglet
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshIdeas();
   });
