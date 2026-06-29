@@ -151,31 +151,25 @@ function renderIdeas() {
 ============================================================ */
 async function likeIdea(id, button) {
   if (hasVoted(id)) {
-    alert("Vous avez déjà voté pour cette idée.");
+    // Proposer de retirer le vote au lieu d'un simple alert
+    const confirm = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
+    if (confirm) await unlikeIdea(id, button);
     return;
   }
 
   const countEl = button.querySelector(".like-count");
   const current = Number(countEl.textContent);
 
-  // Mise à jour optimiste
   countEl.textContent = current + 1;
   const idea = ideas.find(i => i.id === id);
   if (idea) idea.likes++;
 
   button.disabled = true;
-  button.textContent = "✔ Voté";
-  const newCount = document.createElement("span");
-  newCount.className = "like-count";
-  newCount.textContent = current + 1;
-  button.appendChild(newCount);
-
+  button.innerHTML = `✔ Voté <span class="like-count">${current + 1}</span>`;
   localStorage.setItem("liked_" + id, true);
 
-  // Marquer la card comme votée
   const card = button.closest(".card");
   if (card) card.classList.add("voted");
-
   updateStats();
 
   try {
@@ -193,7 +187,6 @@ async function likeIdea(id, button) {
       alert(result.message || "Impossible d'enregistrer votre vote.");
     }
   } catch {
-    // Rollback réseau
     if (idea) idea.likes--;
     localStorage.removeItem("liked_" + id);
     button.disabled = false;
@@ -204,6 +197,44 @@ async function likeIdea(id, button) {
   }
 }
 
+async function unlikeIdea(id, button) {
+  const idea = ideas.find(i => i.id === id);
+  const current = idea ? idea.likes : 0;
+
+  // Mise à jour optimiste
+  if (idea) idea.likes = Math.max(0, idea.likes - 1);
+  localStorage.removeItem("liked_" + id);
+
+  const card = button.closest(".card");
+  if (card) card.classList.remove("voted");
+  button.disabled = false;
+  button.innerHTML = `❤️ J'aime <span class="like-count">${idea ? idea.likes : current - 1}</span>`;
+  updateStats();
+
+  try {
+    const response = await fetch(API_URL + "?action=unlike&id=" + id + "&uuid=" + uuid);
+    const result = await response.json();
+
+    if (!result.success) {
+      // Rollback
+      if (idea) idea.likes = current;
+      localStorage.setItem("liked_" + id, true);
+      if (card) card.classList.add("voted");
+      button.disabled = true;
+      button.innerHTML = `✔ Voté <span class="like-count">${current}</span>`;
+      updateStats();
+      alert(result.message || "Impossible de retirer le vote.");
+    }
+  } catch {
+    if (idea) idea.likes = current;
+    localStorage.setItem("liked_" + id, true);
+    if (card) card.classList.add("voted");
+    button.disabled = true;
+    button.innerHTML = `✔ Voté <span class="like-count">${current}</span>`;
+    updateStats();
+    alert("Erreur réseau. Veuillez réessayer.");
+  }
+}
 /* ============================================================
    MODAL
 ============================================================ */
