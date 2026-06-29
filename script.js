@@ -2,7 +2,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzcW1FG9vekk1b1zrqtS9Mw
 
 let ideas = [];
 let currentCategory = "Toutes";
-let currentSort = "popular"; // "popular" | "newest" | "oldest"
+let currentSort = "popular";
 
 // UUID unique du navigateur
 let uuid = localStorage.getItem("uuid");
@@ -17,7 +17,6 @@ if (!uuid) {
 async function init() {
   const response = await fetch(API_URL + "?action=ideas");
   ideas = await response.json();
-
   updateStats();
   renderCategories();
   renderIdeas();
@@ -39,9 +38,7 @@ function updateStats() {
 function renderCategories() {
   const container = document.getElementById("categories");
   container.innerHTML = "";
-
   const categories = ["Toutes", ...new Set(ideas.map(i => i.categorie))];
-
   categories.forEach(cat => {
     const btn = document.createElement("div");
     btn.className = "category" + (cat === "Toutes" ? " active" : "");
@@ -73,14 +70,10 @@ function bindSortButtons() {
 function getSortedIdeas(list) {
   const copy = [...list];
   switch (currentSort) {
-    case "popular":
-      return copy.sort((a, b) => b.likes - a.likes);
-    case "newest":
-      return copy.sort((a, b) => new Date(b.date) - new Date(a.date));
-    case "oldest":
-      return copy.sort((a, b) => new Date(a.date) - new Date(b.date));
-    default:
-      return copy;
+    case "popular": return copy.sort((a, b) => b.likes - a.likes);
+    case "newest":  return copy.sort((a, b) => new Date(b.date) - new Date(a.date));
+    case "oldest":  return copy.sort((a, b) => new Date(a.date) - new Date(b.date));
+    default:        return copy;
   }
 }
 
@@ -119,6 +112,8 @@ function renderIdeas() {
     const voted = hasVoted(idea.id);
     const card = document.createElement("div");
     card.className = "card" + (voted ? " voted" : "");
+    // Stocker l'id sur la card pour pouvoir la retrouver facilement
+    card.dataset.ideaId = idea.id;
 
     card.innerHTML = `
       <div class="card-header">
@@ -131,7 +126,7 @@ function renderIdeas() {
         <span class="card-date">${formatDate(idea.date)}</span>
         <button
           class="likeButton ${voted ? "voted-btn" : ""}"
-          onclick="event.stopPropagation(); likeIdea(${idea.id}, this)"
+          onclick="event.stopPropagation(); handleCardVote(${idea.id}, this)"
           aria-label="${voted ? "Retirer mon vote" : "Voter pour cette idée"}"
         >
           ${voted ? "✔ Voté" : "❤️ J'aime"}
@@ -146,28 +141,85 @@ function renderIdeas() {
 }
 
 /* ============================================================
-   LIKE
+   UTILITAIRES UI — mise à jour d'un bouton de CARD
 ============================================================ */
-async function likeIdea(id, button) {
+function setCardButtonVoted(button, count) {
+  button.classList.add("voted-btn");
+  button.innerHTML = `✔ Voté <span class="like-count">${count}</span>`;
+  button.setAttribute("aria-label", "Retirer mon vote");
+}
+
+function setCardButtonUnvoted(button, count) {
+  button.classList.remove("voted-btn");
+  button.innerHTML = `❤️ J'aime <span class="like-count">${count}</span>`;
+  button.setAttribute("aria-label", "Voter pour cette idée");
+}
+
+/* Retrouve le bouton de card pour un ideaId donné */
+function getCardButton(id) {
+  const card = document.querySelector(`.card[data-idea-id="${id}"]`);
+  return card ? card.querySelector(".likeButton") : null;
+}
+
+/* ============================================================
+   GESTIONNAIRE VOTE DEPUIS UNE CARD
+============================================================ */
+async function handleCardVote(id, button) {
   if (hasVoted(id)) {
     const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
-    if (confirmed) await unlikeIdea(id, button);
-    return;
+    if (confirmed) await doUnlike(id);
+  } else {
+    await doLike(id);
   }
+}
 
-  const countEl = button.querySelector(".like-count");
-  const current = Number(countEl.textContent);
+/* ============================================================
+   GESTIONNAIRE VOTE DEPUIS LA MODAL
+============================================================ */
+async function handleModalVote(id, modalButton) {
+  if (hasVoted(id)) {
+    const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
+    if (!confirmed) return;
+    await doUnlike(id);
+  } else {
+    await doLike(id);
+  }
+  // Synchronise le bouton modal avec l'état réel après l'action
+  syncModalButton(id, modalButton);
+}
+
+/* Met à jour le bouton modal selon l'état actuel */
+function syncModalButton(id, modalButton) {
   const idea = ideas.find(i => i.id === id);
+  if (!idea) return;
+  const voted = hasVoted(id);
+  if (voted) {
+    modalButton.classList.add("voted-btn");
+    modalButton.innerHTML = `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+  } else {
+    modalButton.classList.remove("voted-btn");
+    modalButton.innerHTML = `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+  }
+}
+
+/* ============================================================
+   LOGIQUE LIKE (sans référence à un bouton spécifique)
+   Met à jour : tableau ideas, localStorage, card, stats
+============================================================ */
+async function doLike(id) {
+  const idea = ideas.find(i => i.id === id);
+  if (!idea) return;
+  const previous = idea.likes;
 
   // Mise à jour optimiste
-  if (idea) idea.likes++;
-  button.classList.add("voted-btn");
-  button.innerHTML = `✔ Voté <span class="like-count">${current + 1}</span>`;
+  idea.likes++;
   localStorage.setItem("liked_" + id, true);
-
-  const card = button.closest(".card");
-  if (card) card.classList.add("voted");
   updateStats();
+
+  const cardBtn = getCardButton(id);
+  const card = cardBtn ? cardBtn.closest(".card") : null;
+  if (card) card.classList.add("voted");
+  if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
 
   try {
     const response = await fetch(API_URL + "?action=like&id=" + id + "&uuid=" + uuid);
@@ -175,40 +227,41 @@ async function likeIdea(id, button) {
 
     if (!result.success) {
       // Rollback
-      if (idea) idea.likes--;
+      idea.likes = previous;
       localStorage.removeItem("liked_" + id);
-      button.classList.remove("voted-btn");
-      button.innerHTML = `❤️ J'aime <span class="like-count">${current}</span>`;
-      if (card) card.classList.remove("voted");
       updateStats();
+      if (card) card.classList.remove("voted");
+      if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
       alert(result.message || "Impossible d'enregistrer votre vote.");
     }
   } catch {
     // Rollback réseau
-    if (idea) idea.likes--;
+    idea.likes = previous;
     localStorage.removeItem("liked_" + id);
-    button.classList.remove("voted-btn");
-    button.innerHTML = `❤️ J'aime <span class="like-count">${current}</span>`;
-    if (card) card.classList.remove("voted");
     updateStats();
+    if (card) card.classList.remove("voted");
+    if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
     alert("Erreur réseau. Veuillez réessayer.");
   }
 }
 
-async function unlikeIdea(id, button) {
+/* ============================================================
+   LOGIQUE UNLIKE (sans référence à un bouton spécifique)
+============================================================ */
+async function doUnlike(id) {
   const idea = ideas.find(i => i.id === id);
-  const current = idea ? idea.likes : 0;
-  const newCount = Math.max(0, current - 1);
+  if (!idea) return;
+  const previous = idea.likes;
 
   // Mise à jour optimiste
-  if (idea) idea.likes = newCount;
+  idea.likes = Math.max(0, idea.likes - 1);
   localStorage.removeItem("liked_" + id);
-
-  const card = button.closest(".card");
-  if (card) card.classList.remove("voted");
-  button.classList.remove("voted-btn");
-  button.innerHTML = `❤️ J'aime <span class="like-count">${newCount}</span>`;
   updateStats();
+
+  const cardBtn = getCardButton(id);
+  const card = cardBtn ? cardBtn.closest(".card") : null;
+  if (card) card.classList.remove("voted");
+  if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
 
   try {
     const response = await fetch(API_URL + "?action=unlike&id=" + id + "&uuid=" + uuid);
@@ -216,22 +269,20 @@ async function unlikeIdea(id, button) {
 
     if (!result.success) {
       // Rollback
-      if (idea) idea.likes = current;
+      idea.likes = previous;
       localStorage.setItem("liked_" + id, true);
-      if (card) card.classList.add("voted");
-      button.classList.add("voted-btn");
-      button.innerHTML = `✔ Voté <span class="like-count">${current}</span>`;
       updateStats();
+      if (card) card.classList.add("voted");
+      if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
       alert(result.message || "Impossible de retirer le vote.");
     }
   } catch {
     // Rollback réseau
-    if (idea) idea.likes = current;
+    idea.likes = previous;
     localStorage.setItem("liked_" + id, true);
-    if (card) card.classList.add("voted");
-    button.classList.add("voted-btn");
-    button.innerHTML = `✔ Voté <span class="like-count">${current}</span>`;
     updateStats();
+    if (card) card.classList.add("voted");
+    if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
     alert("Erreur réseau. Veuillez réessayer.");
   }
 }
@@ -241,33 +292,27 @@ async function unlikeIdea(id, button) {
 ============================================================ */
 function openIdea(idea) {
   const voted = hasVoted(idea.id);
-  const modal = document.getElementById("modal");
-  modal.classList.remove("hidden");
+  document.getElementById("modal").classList.remove("hidden");
 
   document.getElementById("modalBody").innerHTML = `
     <div class="modal-badge">${escHtml(idea.categorie)}</div>
     <h2 class="modal-title">${escHtml(idea.titre)}</h2>
-
     <div class="modal-divider"></div>
-
     <div class="section">
       <h3>📝 Description</h3>
       <p>${escHtml(idea.description)}</p>
     </div>
-
     <div class="section">
       <h3>🚀 Pourquoi cette idée ?</h3>
       <p>${escHtml(idea.pourquoi)}</p>
     </div>
-
     <div class="section">
       <h3>👤 Auteur</h3>
       <p>${escHtml(idea.auteur)}</p>
     </div>
-
     <button
       class="modal-like-btn ${voted ? "voted-btn" : ""}"
-      onclick="likeFromModal(${idea.id}, this)"
+      onclick="handleModalVote(${idea.id}, this)"
     >
       ${voted
         ? `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
@@ -275,23 +320,6 @@ function openIdea(idea) {
       }
     </button>
   `;
-}
-
-async function likeFromModal(id, button) {
-  await likeIdea(id, button);
-
-  // Rafraîchit le texte du bouton modal après action
-  const idea = ideas.find(i => i.id === id);
-  if (!idea) return;
-  const voted = hasVoted(id);
-
-  if (voted) {
-    button.classList.add("voted-btn");
-    button.innerHTML = `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
-  } else {
-    button.classList.remove("voted-btn");
-    button.innerHTML = `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
-  }
 }
 
 /* ============================================================
