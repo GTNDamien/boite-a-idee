@@ -2,259 +2,292 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzcW1FG9vekk1b1zrqtS9Mw
 
 let ideas = [];
 let currentCategory = "Toutes";
+let currentSort = "popular"; // "popular" | "newest" | "oldest"
 
 // UUID unique du navigateur
 let uuid = localStorage.getItem("uuid");
-
 if (!uuid) {
-    uuid = crypto.randomUUID();
-    localStorage.setItem("uuid", uuid);
+  uuid = crypto.randomUUID();
+  localStorage.setItem("uuid", uuid);
 }
 
-async function init(){
+/* ============================================================
+   INIT
+============================================================ */
+async function init() {
+  const response = await fetch(API_URL + "?action=ideas");
+  ideas = await response.json();
 
-    const response = await fetch(API_URL + "?action=ideas");
-
-    ideas = await response.json();
-
-    renderCategories();
-
-    renderIdeas();
-
+  updateStats();
+  renderCategories();
+  renderIdeas();
+  bindSortButtons();
 }
 
-function renderCategories(){
-
-    const container = document.getElementById("categories");
-
-    container.innerHTML = "";
-
-    const categories = [
-        "Toutes",
-        ...new Set(ideas.map(i => i.categorie))
-    ];
-
-    categories.forEach(cat => {
-
-        const btn = document.createElement("div");
-
-        btn.className = "category";
-
-        if(cat==="Toutes")
-            btn.classList.add("active");
-
-        btn.textContent = cat;
-
-        btn.onclick = () => {
-
-            document.querySelectorAll(".category")
-                .forEach(c => c.classList.remove("active"));
-
-            btn.classList.add("active");
-
-            currentCategory = cat;
-
-            renderIdeas();
-
-        };
-
-        container.appendChild(btn);
-
-    });
-
+/* ============================================================
+   STATS HERO
+============================================================ */
+function updateStats() {
+  const totalVotes = ideas.reduce((acc, i) => acc + i.likes, 0);
+  document.getElementById("statIdeas").textContent = ideas.length;
+  document.getElementById("statVotes").textContent = totalVotes;
 }
 
-function renderIdeas(){
+/* ============================================================
+   CATÉGORIES
+============================================================ */
+function renderCategories() {
+  const container = document.getElementById("categories");
+  container.innerHTML = "";
 
-    const container = document.getElementById("ideas");
+  const categories = ["Toutes", ...new Set(ideas.map(i => i.categorie))];
 
-    container.innerHTML = "";
-
-    const filtered = currentCategory==="Toutes"
-        ? ideas
-        : ideas.filter(i => i.categorie===currentCategory);
-
-    filtered.forEach(idea => {
-
-        const card = document.createElement("div");
-
-        card.className = "card";
-
-        card.innerHTML = `
-
-            <h2>${idea.titre}</h2>
-
-            <div class="badge">
-                ${idea.categorie}
-            </div>
-
-            <p>${idea.description}</p>
-
-            <button class="likeButton" onclick="likeIdea(${idea.id}, this)">
-
-                ❤️ <span>${idea.likes}</span>
-
-            </button>
-
-        `;
-
-        card.onclick = (e)=>{
-
-            if(e.target.tagName==="BUTTON") return;
-
-            openIdea(idea);
-
-        };
-
-        container.appendChild(card);
-
-    });
-
+  categories.forEach(cat => {
+    const btn = document.createElement("div");
+    btn.className = "category" + (cat === "Toutes" ? " active" : "");
+    btn.textContent = cat;
+    btn.onclick = () => {
+      document.querySelectorAll(".category").forEach(c => c.classList.remove("active"));
+      btn.classList.add("active");
+      currentCategory = cat;
+      renderIdeas();
+    };
+    container.appendChild(btn);
+  });
 }
 
-async function likeIdea(id, button){
-
-    // déjà voté ?
-
-    if(localStorage.getItem("liked_"+id)){
-
-        alert("Vous avez déjà voté pour cette idée.");
-
-        return;
-
-    }
-
-    const span = button.querySelector("span");
-
-    const current = Number(span.textContent);
-
-    // mise à jour instantanée
-
-    span.textContent = current + 1;
-
-    const idea = ideas.find(i => i.id === id);
-
-    if (idea) {
-        idea.likes++;
-    }
-
-    button.disabled = true;
-
-    button.style.opacity = .7;
-
-    localStorage.setItem("liked_"+id,true);
-
-    const response = await fetch(
-
-        API_URL +
-        "?action=like&id="+id+
-        "&uuid="+uuid
-
-    );
-
-    const result = await response.json();
-
-    if(!result.success){
-
-        // Remet le compteur affiché
-        span.textContent = current;
-
-        // Remet aussi la valeur dans le tableau ideas
-        const idea = ideas.find(i => i.id === id);
-
-        if(idea){
-            idea.likes--;
-        }
-
-        // Réactive le bouton
-        button.disabled = false;
-        button.style.opacity = 1;
-
-        localStorage.removeItem("liked_"+id);
-
-        alert(result.message);
-
-    }
-
+/* ============================================================
+   TRI
+============================================================ */
+function bindSortButtons() {
+  document.querySelectorAll(".sort-btn").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentSort = btn.dataset.sort;
+      renderIdeas();
+    };
+  });
 }
 
+function getSortedIdeas(list) {
+  const copy = [...list];
+  switch (currentSort) {
+    case "popular":
+      return copy.sort((a, b) => b.likes - a.likes);
+    case "newest":
+      return copy.sort((a, b) => new Date(b.date) - new Date(a.date));
+    case "oldest":
+      return copy.sort((a, b) => new Date(a.date) - new Date(b.date));
+    default:
+      return copy;
+  }
+}
 
-init();
+/* ============================================================
+   RENDU DES IDÉES
+============================================================ */
+function formatDate(raw) {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+}
 
-function openIdea(idea){
+function hasVoted(id) {
+  return !!localStorage.getItem("liked_" + id);
+}
 
-    document.getElementById("modal").classList.remove("hidden");
+function renderIdeas() {
+  const container = document.getElementById("ideas");
+  const emptyState = document.getElementById("emptyState");
+  container.innerHTML = "";
 
-    document.getElementById("modalBody").innerHTML=`
+  const filtered = currentCategory === "Toutes"
+    ? ideas
+    : ideas.filter(i => i.categorie === currentCategory);
 
-        <h2>${idea.titre}</h2>
+  const sorted = getSortedIdeas(filtered);
 
-        <div class="badge">
+  if (sorted.length === 0) {
+    emptyState.classList.remove("hidden");
+    return;
+  }
+  emptyState.classList.add("hidden");
 
-            ${idea.categorie}
+  sorted.forEach(idea => {
+    const voted = hasVoted(idea.id);
+    const card = document.createElement("div");
+    card.className = "card" + (voted ? " voted" : "");
 
-        </div>
-
-        <div class="section">
-
-            <h3>📝 Description</h3>
-
-            <p>${idea.description}</p>
-
-        </div>
-
-        <div class="section">
-
-            <h3>🚀 Pourquoi cette idée ?</h3>
-
-            <p>${idea.pourquoi}</p>
-
-        </div>
-
-        <div class="section">
-
-            <h3>👤 Auteur</h3>
-
-            <p>${idea.auteur}</p>
-
-        </div>
-
-        <div class="section">
-
-            <button
-            class="likeButton"
-            onclick="likeIdea(${idea.id},this)">
-
-            ❤️ ${idea.likes}
-
-            </button>
-
-        </div>
-
+    card.innerHTML = `
+      <div class="card-header">
+        <h2>${escHtml(idea.titre)}</h2>
+        <span class="vote-badge">✔ Voté</span>
+      </div>
+      <div class="badge">${escHtml(idea.categorie)}</div>
+      <p>${escHtml(idea.description)}</p>
+      <div class="card-footer">
+        <span class="card-date">${formatDate(idea.date)}</span>
+        <button
+          class="likeButton"
+          onclick="event.stopPropagation(); likeIdea(${idea.id}, this)"
+          ${voted ? "disabled" : ""}
+          aria-label="${voted ? "Déjà voté" : "Voter pour cette idée"}"
+        >
+          ${voted ? "✔ Voté" : "❤️ J'aime"}
+          <span class="like-count">${idea.likes}</span>
+        </button>
+      </div>
     `;
 
+    card.onclick = () => openIdea(idea);
+    container.appendChild(card);
+  });
 }
 
-document
-.getElementById("closeModal")
-.onclick=()=>{
+/* ============================================================
+   LIKE
+============================================================ */
+async function likeIdea(id, button) {
+  if (hasVoted(id)) {
+    alert("Vous avez déjà voté pour cette idée.");
+    return;
+  }
 
-    document
-    .getElementById("modal")
-    .classList
-    .add("hidden");
+  const countEl = button.querySelector(".like-count");
+  const current = Number(countEl.textContent);
 
-};
+  // Mise à jour optimiste
+  countEl.textContent = current + 1;
+  const idea = ideas.find(i => i.id === id);
+  if (idea) idea.likes++;
 
-window.onclick=(e)=>{
+  button.disabled = true;
+  button.textContent = "✔ Voté";
+  const newCount = document.createElement("span");
+  newCount.className = "like-count";
+  newCount.textContent = current + 1;
+  button.appendChild(newCount);
 
-    if(e.target.id==="modal"){
+  localStorage.setItem("liked_" + id, true);
 
-        document
-        .getElementById("modal")
-        .classList
-        .add("hidden");
+  // Marquer la card comme votée
+  const card = button.closest(".card");
+  if (card) card.classList.add("voted");
 
+  updateStats();
+
+  try {
+    const response = await fetch(API_URL + "?action=like&id=" + id + "&uuid=" + uuid);
+    const result = await response.json();
+
+    if (!result.success) {
+      // Rollback
+      if (idea) idea.likes--;
+      localStorage.removeItem("liked_" + id);
+      button.disabled = false;
+      button.innerHTML = `❤️ J'aime <span class="like-count">${current}</span>`;
+      if (card) card.classList.remove("voted");
+      updateStats();
+      alert(result.message || "Impossible d'enregistrer votre vote.");
     }
+  } catch {
+    // Rollback réseau
+    if (idea) idea.likes--;
+    localStorage.removeItem("liked_" + id);
+    button.disabled = false;
+    button.innerHTML = `❤️ J'aime <span class="like-count">${current}</span>`;
+    if (card) card.classList.remove("voted");
+    updateStats();
+    alert("Erreur réseau. Veuillez réessayer.");
+  }
+}
 
+/* ============================================================
+   MODAL
+============================================================ */
+function openIdea(idea) {
+  const voted = hasVoted(idea.id);
+  const modal = document.getElementById("modal");
+  modal.classList.remove("hidden");
+
+  document.getElementById("modalBody").innerHTML = `
+    <div class="modal-badge">${escHtml(idea.categorie)}</div>
+    <h2 class="modal-title">${escHtml(idea.titre)}</h2>
+
+    <div class="modal-divider"></div>
+
+    <div class="section">
+      <h3>📝 Description</h3>
+      <p>${escHtml(idea.description)}</p>
+    </div>
+
+    <div class="section">
+      <h3>🚀 Pourquoi cette idée ?</h3>
+      <p>${escHtml(idea.pourquoi)}</p>
+    </div>
+
+    <div class="section">
+      <h3>👤 Auteur</h3>
+      <p>${escHtml(idea.auteur)}</p>
+    </div>
+
+    <button
+      class="modal-like-btn"
+      onclick="likeFromModal(${idea.id}, this)"
+      ${voted ? "disabled" : ""}
+    >
+      ${voted
+        ? `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
+        : `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
+      }
+    </button>
+  `;
+}
+
+function likeFromModal(id, button) {
+  likeIdea(id, button).then(() => {
+    // Rafraîchit le texte du bouton modal après vote
+    const idea = ideas.find(i => i.id === id);
+    if (!idea) return;
+    const voted = hasVoted(id);
+    if (voted) {
+      button.disabled = true;
+      button.innerHTML = `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+    }
+  });
+}
+
+/* ============================================================
+   FERMETURE MODAL
+============================================================ */
+document.getElementById("closeModal").onclick = () => {
+  document.getElementById("modal").classList.add("hidden");
 };
+
+window.onclick = e => {
+  if (e.target.id === "modal") {
+    document.getElementById("modal").classList.add("hidden");
+  }
+};
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    document.getElementById("modal").classList.add("hidden");
+  }
+});
+
+/* ============================================================
+   UTILITAIRES
+============================================================ */
+function escHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+init();
