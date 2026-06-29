@@ -402,11 +402,17 @@ body {
   transform: scale(1.04);
 }
 
-.likeButton:disabled {
+/* Remplace .likeButton:disabled par : */
+.likeButton.voted-btn {
   border-color: var(--green);
   color: var(--green);
-  cursor: default;
-  opacity: 1;
+  cursor: pointer; /* reste cliquable */
+}
+
+.likeButton.voted-btn:hover {
+  background: var(--green-light);
+  box-shadow: 0 4px 12px rgba(5, 150, 105, .2);
+  transform: scale(1.04);
 }
 
 .likeButton .like-count {
@@ -570,6 +576,14 @@ body {
   background: var(--blue-dark);
   box-shadow: 0 6px 16px rgba(37,99,235,.35);
   transform: translateY(-1px);
+}
+
+.modal-like-btn.voted-btn {
+  background: var(--green);
+}
+
+.modal-like-btn.voted-btn:hover {
+  background: #047857;
 }
 
 .modal-like-btn:disabled {
