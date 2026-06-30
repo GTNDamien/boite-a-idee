@@ -15,12 +15,48 @@ if (!uuid) {
    INIT
 ============================================================ */
 async function init() {
-  const response = await fetch(API_URL + "?action=ideas");
-  ideas = await response.json();
+  try {
+    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
+    ideas = await response.json();
+  } catch (e) {
+    console.error("Erreur de chargement initial :", e);
+    document.getElementById("ideas").innerHTML =
+      "<p style='padding:40px;text-align:center;color:#999;'>Impossible de charger les idées. Réessayez plus tard.</p>";
+    return;
+  }
+
   updateStats();
   renderCategories();
   renderIdeas();
   bindSortButtons();
+
+  // Rafraîchit toutes les 30 secondes (sessions longues)
+  setInterval(refreshIdeas, 30_000);
+
+  // Rafraîchit aussi quand l'utilisateur revient sur l'onglet
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshIdeas();
+  });
+}
+
+/* ============================================================
+   RAFRAÎCHISSEMENT (récupère les votes des autres utilisateurs)
+============================================================ */
+async function refreshIdeas() {
+  try {
+    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
+    const fresh = await response.json();
+
+    fresh.forEach(freshIdea => {
+      const local = ideas.find(i => i.id === freshIdea.id);
+      if (local) local.likes = freshIdea.likes;
+    });
+
+    updateStats();
+    renderIdeas();
+  } catch (e) {
+    console.warn("Rafraîchissement échoué", e);
+  }
 }
 
 /* ============================================================
@@ -133,7 +169,8 @@ function renderIdeas() {
       </div>
     `;
 
-    // Bouton vote — listener attaché proprement, sans inline onclick
+    // Listener attaché directement sur l'élément créé pour CETTE idée précise
+    // (évite tout bug de fermeture / mauvais id sur un autre bouton)
     const btn = card.querySelector(".likeButton");
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -144,7 +181,6 @@ function renderIdeas() {
     container.appendChild(card);
   });
 }
-
 
 /* ============================================================
    UTILITAIRES UI — mise à jour d'un bouton de CARD
@@ -171,7 +207,6 @@ function getCardButton(id) {
    GESTIONNAIRE VOTE DEPUIS UNE CARD
 ============================================================ */
 async function handleCardVote(id, button) {
-  // Désactive le bouton pendant la requête pour éviter les double-clics
   button.disabled = true;
   if (hasVoted(id)) {
     const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
@@ -193,7 +228,6 @@ async function handleModalVote(id, modalButton) {
   } else {
     await doLike(id);
   }
-  // Synchronise le bouton modal avec l'état réel après l'action
   syncModalButton(id, modalButton);
 }
 
@@ -212,15 +246,13 @@ function syncModalButton(id, modalButton) {
 }
 
 /* ============================================================
-   LOGIQUE LIKE (sans référence à un bouton spécifique)
-   Met à jour : tableau ideas, localStorage, card, stats
+   LOGIQUE LIKE
 ============================================================ */
 async function doLike(id) {
   const idea = ideas.find(i => i.id === id);
   if (!idea) return;
   const previous = idea.likes;
 
-  // Mise à jour optimiste
   idea.likes++;
   localStorage.setItem("liked_" + id, true);
   updateStats();
@@ -235,7 +267,6 @@ async function doLike(id) {
     const result = await response.json();
 
     if (!result.success) {
-      // Rollback
       idea.likes = previous;
       localStorage.removeItem("liked_" + id);
       updateStats();
@@ -244,7 +275,6 @@ async function doLike(id) {
       alert(result.message || "Impossible d'enregistrer votre vote.");
     }
   } catch {
-    // Rollback réseau
     idea.likes = previous;
     localStorage.removeItem("liked_" + id);
     updateStats();
@@ -255,14 +285,13 @@ async function doLike(id) {
 }
 
 /* ============================================================
-   LOGIQUE UNLIKE (sans référence à un bouton spécifique)
+   LOGIQUE UNLIKE
 ============================================================ */
 async function doUnlike(id) {
   const idea = ideas.find(i => i.id === id);
   if (!idea) return;
   const previous = idea.likes;
 
-  // Mise à jour optimiste
   idea.likes = Math.max(0, idea.likes - 1);
   localStorage.removeItem("liked_" + id);
   updateStats();
@@ -277,7 +306,6 @@ async function doUnlike(id) {
     const result = await response.json();
 
     if (!result.success) {
-      // Rollback
       idea.likes = previous;
       localStorage.setItem("liked_" + id, true);
       updateStats();
@@ -286,7 +314,6 @@ async function doUnlike(id) {
       alert(result.message || "Impossible de retirer le vote.");
     }
   } catch {
-    // Rollback réseau
     idea.likes = previous;
     localStorage.setItem("liked_" + id, true);
     updateStats();
@@ -362,34 +389,7 @@ function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-async function refreshIdeas() {
-  try {
-    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
-    const fresh = await response.json();
-
-    fresh.forEach(freshIdea => {
-      const local = ideas.find(i => i.id === freshIdea.id);
-      if (local) local.likes = freshIdea.likes;
-    });
-
-    updateStats();
-    renderIdeas();
-  } catch (e) {
-    console.warn("Rafraîchissement échoué", e);
-  }
-}
-
-async function init() {
-  const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
-  ideas = await response.json();
-  updateStats();
-  renderCategories();
-  renderIdeas();
-  bindSortButtons();
-
-  setInterval(refreshIdeas, 30_000);
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") refreshIdeas();
-  });
-}
+/* ============================================================
+   LANCEMENT
+============================================================ */
+init();
