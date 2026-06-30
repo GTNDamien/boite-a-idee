@@ -4,7 +4,12 @@ let ideas = [];
 let currentCategory = "Toutes";
 let currentSort = "popular";
 
-// UUID unique du navigateur
+// Liste des ids votés par cet UUID, telle que renvoyée par le serveur
+// (source de vérité = Google Sheet, pas le localStorage)
+let votedIds = new Set();
+
+// UUID unique du navigateur (sert uniquement à s'identifier auprès du serveur,
+// le compteur et le statut "voté" viennent toujours du Sheet)
 let uuid = localStorage.getItem("uuid");
 if (!uuid) {
   uuid = crypto.randomUUID();
@@ -16,8 +21,13 @@ if (!uuid) {
 ============================================================ */
 async function init() {
   try {
-    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
-    ideas = await response.json();
+    const [ideasRes, votesRes] = await Promise.all([
+      fetch(API_URL + "?action=ideas&t=" + Date.now()),
+      fetch(API_URL + "?action=myVotes&uuid=" + uuid + "&t=" + Date.now())
+    ]);
+    ideas = await ideasRes.json();
+    const myVotes = await votesRes.json();
+    votedIds = new Set(myVotes.map(Number));
   } catch (e) {
     console.error("Erreur de chargement initial :", e);
     document.getElementById("ideas").innerHTML =
@@ -30,8 +40,9 @@ async function init() {
   renderIdeas();
   bindSortButtons();
 
-  // Rafraîchit toutes les 30 secondes (sessions longues)
-  setInterval(refreshIdeas, 30_000);
+  // Rafraîchit toutes les 10 secondes pour que les votes des autres
+  // apparaissent rapidement sur tous les appareils
+  setInterval(refreshIdeas, 10_000);
 
   // Rafraîchit aussi quand l'utilisateur revient sur l'onglet
   document.addEventListener("visibilitychange", () => {
@@ -40,17 +51,24 @@ async function init() {
 }
 
 /* ============================================================
-   RAFRAÎCHISSEMENT (récupère les votes des autres utilisateurs)
+   RAFRAÎCHISSEMENT (récupère les votes des autres utilisateurs
+   ET la vérité serveur sur les votes de cet UUID)
 ============================================================ */
 async function refreshIdeas() {
   try {
-    const response = await fetch(API_URL + "?action=ideas&t=" + Date.now());
-    const fresh = await response.json();
+    const [ideasRes, votesRes] = await Promise.all([
+      fetch(API_URL + "?action=ideas&t=" + Date.now()),
+      fetch(API_URL + "?action=myVotes&uuid=" + uuid + "&t=" + Date.now())
+    ]);
+    const fresh = await ideasRes.json();
+    const myVotes = await votesRes.json();
 
     fresh.forEach(freshIdea => {
       const local = ideas.find(i => i.id === freshIdea.id);
       if (local) local.likes = freshIdea.likes;
     });
+
+    votedIds = new Set(myVotes.map(Number));
 
     updateStats();
     renderIdeas();
@@ -124,7 +142,7 @@ function formatDate(raw) {
 }
 
 function hasVoted(id) {
-  return !!localStorage.getItem("liked_" + id);
+  return votedIds.has(Number(id));
 }
 
 function renderIdeas() {
@@ -254,7 +272,7 @@ async function doLike(id) {
   const previous = idea.likes;
 
   idea.likes++;
-  localStorage.setItem("liked_" + id, true);
+  votedIds.add(Number(id));
   updateStats();
 
   const cardBtn = getCardButton(id);
@@ -268,7 +286,7 @@ async function doLike(id) {
 
     if (!result.success) {
       idea.likes = previous;
-      localStorage.removeItem("liked_" + id);
+      votedIds.delete(Number(id));
       updateStats();
       if (card) card.classList.remove("voted");
       if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
@@ -276,7 +294,7 @@ async function doLike(id) {
     }
   } catch {
     idea.likes = previous;
-    localStorage.removeItem("liked_" + id);
+    votedIds.delete(Number(id));
     updateStats();
     if (card) card.classList.remove("voted");
     if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
@@ -293,7 +311,7 @@ async function doUnlike(id) {
   const previous = idea.likes;
 
   idea.likes = Math.max(0, idea.likes - 1);
-  localStorage.removeItem("liked_" + id);
+  votedIds.delete(Number(id));
   updateStats();
 
   const cardBtn = getCardButton(id);
@@ -307,7 +325,7 @@ async function doUnlike(id) {
 
     if (!result.success) {
       idea.likes = previous;
-      localStorage.setItem("liked_" + id, true);
+      votedIds.add(Number(id));
       updateStats();
       if (card) card.classList.add("voted");
       if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
@@ -315,7 +333,7 @@ async function doUnlike(id) {
     }
   } catch {
     idea.likes = previous;
-    localStorage.setItem("liked_" + id, true);
+    votedIds.add(Number(id));
     updateStats();
     if (card) card.classList.add("voted");
     if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
