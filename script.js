@@ -244,13 +244,13 @@ function getCardButton(id) {
 
 /* ============================================================
    GESTIONNAIRE VOTE DEPUIS UNE CARD
+   Plus de confirmation : un clic sur "Voté" retire directement
+   le vote, exactement comme un clic sur "J'aime" l'ajoute.
 ============================================================ */
 async function handleCardVote(id, button) {
   if (isPending(id)) return; // requête déjà en cours pour cette idée, on ignore
 
   if (hasVoted(id)) {
-    const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
-    if (!confirmed) return;
     await doUnlike(id);
   } else {
     await doLike(id);
@@ -264,8 +264,6 @@ async function handleModalVote(id, modalButton) {
   if (isPending(id)) return; // requête déjà en cours (ex: lancée depuis la card), on ignore
 
   if (hasVoted(id)) {
-    const confirmed = window.confirm("Vous avez déjà voté. Retirer votre vote ?");
-    if (!confirmed) return;
     await doUnlike(id);
   } else {
     await doLike(id);
@@ -280,10 +278,25 @@ function syncModalButton(id, modalButton) {
   const voted = hasVoted(id);
   if (voted) {
     modalButton.classList.add("voted-btn");
-    modalButton.innerHTML = `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+    modalButton.innerHTML = `<span>✔</span> Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`;
   } else {
     modalButton.classList.remove("voted-btn");
     modalButton.innerHTML = `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+  }
+}
+
+/* ============================================================
+   AIDE — bascule l'état "pending" d'un bouton en douceur
+   (via requestAnimationFrame pour laisser le navigateur peindre
+   le changement de texte/classe avant de désactiver le bouton,
+   ce qui évite le petit "saut" visuel ressenti auparavant)
+============================================================ */
+function setPendingState(button, pending) {
+  if (!button) return;
+  if (pending) {
+    requestAnimationFrame(() => { button.disabled = true; });
+  } else {
+    button.disabled = false;
   }
 }
 
@@ -310,7 +323,7 @@ async function doLike(id) {
   if (card) card.classList.add("voted");
   if (cardBtn) {
     setCardButtonVoted(cardBtn, idea.likes);
-    cardBtn.disabled = true;
+    setPendingState(cardBtn, true);
   }
 
   try {
@@ -323,7 +336,6 @@ async function doLike(id) {
       updateStats();
       if (card) card.classList.remove("voted");
       if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
-      alert(result.message || "Impossible d'enregistrer votre vote.");
     }
   } catch {
     idea.likes = previous;
@@ -335,7 +347,7 @@ async function doLike(id) {
   } finally {
     pendingIds.delete(numId);
     const btnNow = getCardButton(id);
-    if (btnNow) btnNow.disabled = false;
+    setPendingState(btnNow, false);
   }
 }
 
@@ -360,7 +372,7 @@ async function doUnlike(id) {
   if (card) card.classList.remove("voted");
   if (cardBtn) {
     setCardButtonUnvoted(cardBtn, idea.likes);
-    cardBtn.disabled = true;
+    setPendingState(cardBtn, true);
   }
 
   try {
@@ -373,7 +385,6 @@ async function doUnlike(id) {
       updateStats();
       if (card) card.classList.add("voted");
       if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
-      alert(result.message || "Impossible de retirer le vote.");
     }
   } catch {
     idea.likes = previous;
@@ -385,7 +396,7 @@ async function doUnlike(id) {
   } finally {
     pendingIds.delete(numId);
     const btnNow = getCardButton(id);
-    if (btnNow) btnNow.disabled = false;
+    setPendingState(btnNow, false);
   }
 }
 
@@ -424,7 +435,7 @@ function openIdea(id) {
       onclick="handleModalVote(${idea.id}, this)"
     >
       ${voted
-        ? `<span>✔</span> Vous avez déjà voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
+        ? `<span>✔</span> Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`
         : `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
       }
     </button>

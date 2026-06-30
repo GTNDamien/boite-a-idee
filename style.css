@@ -281,11 +281,11 @@ body {
    CARD
 ============================== */
 .card {
-  background: var(--white);
+  background-color: var(--white);
   border-radius: var(--radius-lg);
   padding: 26px;
   border: 1.5px solid var(--gray-200);
-  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background-color .3s ease;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -299,7 +299,7 @@ body {
 
 .card.voted {
   border-color: var(--green);
-  background: linear-gradient(to bottom, var(--white) 85%, var(--green-light));
+  background-color: var(--green-light);
 }
 
 .card-header {
@@ -319,7 +319,7 @@ body {
 }
 
 .vote-badge {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 4px;
   background: var(--green-light);
@@ -330,10 +330,15 @@ body {
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .2s ease, transform .2s ease;
+  pointer-events: none;
 }
 
 .card.voted .vote-badge {
-  display: flex;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .badge {
@@ -383,7 +388,7 @@ body {
   align-items: center;
   gap: 8px;
   border: 1.5px solid var(--blue);
-  background: transparent;
+  background-color: transparent;
   color: var(--blue);
   padding: 9px 18px;
   border-radius: var(--radius-pill);
@@ -391,41 +396,50 @@ body {
   font-size: 13px;
   font-weight: 700;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease,
+              box-shadow .2s ease, transform .2s ease, opacity .15s ease;
   flex-shrink: 0;
 }
 
 .likeButton:hover:not(:disabled) {
-  background: var(--blue);
+  background-color: var(--blue);
   color: var(--white);
   box-shadow: 0 4px 12px rgba(37,99,235,.3);
   transform: scale(1.04);
 }
 
-/* Remplace .likeButton:disabled par : */
 .likeButton.voted-btn {
   border-color: var(--green);
   color: var(--green);
-  cursor: pointer; /* reste cliquable */
+  cursor: pointer; /* reste cliquable : permet de retirer le vote */
 }
 
-.likeButton.voted-btn:hover {
-  background: var(--green-light);
+.likeButton.voted-btn:hover:not(:disabled) {
+  background-color: var(--green-light);
   box-shadow: 0 4px 12px rgba(5, 150, 105, .2);
   transform: scale(1.04);
 }
 
+/* État "en cours" : on assombrit/estompe plutôt que de couper net,
+   et on bloque les clics via pointer-events plutôt qu'un saut visuel brutal */
+.likeButton:disabled,
+.likeButton[disabled] {
+  opacity: .6;
+  pointer-events: none;
+  transform: none;
+}
+
 .likeButton .like-count {
-  background: var(--blue-light);
+  background-color: var(--blue-light);
   color: var(--blue);
   border-radius: var(--radius-pill);
   padding: 1px 8px;
   font-size: 12px;
-  transition: all .2s;
+  transition: background-color .2s ease, color .2s ease;
 }
 
-.likeButton:disabled .like-count {
-  background: var(--green-light);
+.likeButton.voted-btn .like-count {
+  background-color: var(--green-light);
   color: var(--green);
 }
 
@@ -560,7 +574,7 @@ body {
   gap: 10px;
   width: 100%;
   border: none;
-  background: var(--blue);
+  background-color: var(--blue);
   color: var(--white);
   padding: 16px;
   border-radius: var(--radius-md);
@@ -568,27 +582,30 @@ body {
   font-size: 15px;
   font-weight: 700;
   font-family: inherit;
-  transition: all .2s ease;
+  transition: background-color .25s ease, box-shadow .2s ease, transform .2s ease, opacity .15s ease;
   margin-top: 28px;
 }
 
 .modal-like-btn:hover:not(:disabled) {
-  background: var(--blue-dark);
+  background-color: var(--blue-dark);
   box-shadow: 0 6px 16px rgba(37,99,235,.35);
   transform: translateY(-1px);
 }
 
 .modal-like-btn.voted-btn {
-  background: var(--green);
+  background-color: var(--green);
+  cursor: pointer; /* reste cliquable : permet de retirer le vote */
 }
 
-.modal-like-btn.voted-btn:hover {
-  background: #047857;
+.modal-like-btn.voted-btn:hover:not(:disabled) {
+  background-color: #047857;
 }
 
-.modal-like-btn:disabled {
-  background: var(--green);
-  cursor: default;
+.modal-like-btn:disabled,
+.modal-like-btn[disabled] {
+  opacity: .6;
+  pointer-events: none;
+  transform: none;
 }
 
 /* ==============================
