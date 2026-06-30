@@ -27,21 +27,30 @@ let pollInterval = null;
 /* ============================================================
    THÈME
 ============================================================ */
+const SUN_ICON = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+const MOON_ICON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
 function initTheme() {
   const saved = localStorage.getItem("theme"); // "light" ou "dark"
   const isLight = saved === "light"; // pas de valeur enregistrée -> sombre par défaut
+  applyTheme(isLight, false);
+}
+
+function applyTheme(isLight, persist) {
   document.body.classList.toggle("light", isLight);
-  const toggleBtn = document.getElementById("themeToggle");
-  if (toggleBtn) toggleBtn.textContent = isLight ? "🌙" : "☀️";
+  const icon = document.getElementById("themeIcon");
+  const label = document.getElementById("themeLabel");
+  if (icon) icon.innerHTML = isLight ? MOON_ICON : SUN_ICON;
+  if (label) label.textContent = isLight ? "Mode sombre" : "Mode clair";
+  if (persist) localStorage.setItem("theme", isLight ? "light" : "dark");
 }
 
 function bindThemeToggle() {
   const toggleBtn = document.getElementById("themeToggle");
   if (!toggleBtn) return;
   toggleBtn.addEventListener("click", () => {
-    const isLight = document.body.classList.toggle("light");
-    localStorage.setItem("theme", isLight ? "light" : "dark");
-    toggleBtn.textContent = isLight ? "🌙" : "☀️";
+    const isLight = !document.body.classList.contains("light");
+    applyTheme(isLight, true);
   });
 }
 
@@ -63,7 +72,7 @@ async function init() {
   } catch (e) {
     console.error("Erreur de chargement initial :", e);
     document.getElementById("ideas").innerHTML =
-      "<p style='padding:40px;text-align:center;color:#999;'>Impossible de charger les idées. Réessayez plus tard.</p>";
+      "<p style='padding:40px;text-align:center;color:var(--ink-dim);'>Impossible de charger les idées. Réessayez plus tard.</p>";
     return;
   }
 
@@ -210,7 +219,7 @@ function renderIdeas() {
     card.innerHTML = `
       <div class="card-header">
         <h2>${escHtml(idea.titre)}</h2>
-        <span class="vote-badge">✔ Voté</span>
+        <span class="vote-badge">✓</span>
       </div>
       <div class="badge">${escHtml(idea.categorie)}</div>
       <p>${escHtml(idea.description)}</p>
@@ -220,7 +229,7 @@ function renderIdeas() {
           class="likeButton ${voted ? "voted-btn" : ""}"
           aria-label="${voted ? "Retirer mon vote" : "Voter pour cette idée"}"
         >
-          ${voted ? "✔ Voté" : "❤️ J'aime"}
+          ${voted ? "Voté" : "Voter"}
           <span class="like-count">${idea.likes}</span>
         </button>
       </div>
@@ -314,10 +323,10 @@ function syncModalButton(id, modalButton) {
   const voted = hasVoted(id);
   if (voted) {
     modalButton.classList.add("voted-btn");
-    modalButton.innerHTML = `<span>✔</span> Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`;
+    modalButton.textContent = `✓ Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`;
   } else {
     modalButton.classList.remove("voted-btn");
-    modalButton.innerHTML = `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
+    modalButton.textContent = `Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`;
   }
 }
 
@@ -333,27 +342,25 @@ function openIdea(id) {
     <h2 class="modal-title">${escHtml(idea.titre)}</h2>
     <div class="modal-divider"></div>
     <div class="section">
-      <h3>📝 Description</h3>
+      <h3>Description</h3>
       <p>${escHtml(idea.description)}</p>
     </div>
     <div class="section">
-      <h3>🚀 Pourquoi cette idée ?</h3>
+      <h3>Pourquoi cette idée ?</h3>
       <p>${escHtml(idea.pourquoi)}</p>
     </div>
     <div class="section">
-      <h3>👤 Auteur</h3>
+      <h3>Auteur</h3>
       <p>${escHtml(idea.auteur)}</p>
     </div>
     <button
       class="modal-like-btn ${voted ? "voted-btn" : ""}"
       data-idea-id="${idea.id}"
       onclick="toggleVote(${idea.id})"
-    >
-      ${voted
-        ? `<span>✔</span> Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`
-        : `<span>❤️</span> Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
-      }
-    </button>
+    >${voted
+        ? `✓ Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`
+        : `Voter pour cette idée · ${idea.likes} vote${idea.likes > 1 ? "s" : ""}`
+      }</button>
   `;
 }
 
