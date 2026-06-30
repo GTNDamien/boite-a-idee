@@ -8,24 +8,50 @@ let currentSort = "popular";
 // (source de vérité = Google Sheet, pas le localStorage)
 let votedIds = new Set();
 
-// UUID unique du navigateur (sert uniquement à s'identifier auprès du serveur,
-// le compteur et le statut "voté" viennent toujours du Sheet)
+// UUID unique du navigateur
 let uuid = localStorage.getItem("uuid");
 if (!uuid) {
   uuid = crypto.randomUUID();
   localStorage.setItem("uuid", uuid);
 }
 
-// Idées dont le vote/retrait est actuellement en cours de traitement
-// (empêche tout chevauchement de requête like/unlike sur la même idée)
+// Idées dont une requête réseau (like/unlike) est en cours
 let pendingIds = new Set();
 
+// Idea id -> "like" | "unlike" : dernière action voulue par l'utilisateur,
+// en attente d'envoi car une requête précédente est encore en vol
+let queuedAction = new Map();
+
 let pollInterval = null;
+
+/* ============================================================
+   THÈME
+============================================================ */
+function initTheme() {
+  const saved = localStorage.getItem("theme"); // "light" ou "dark"
+  const isLight = saved === "light"; // pas de valeur enregistrée -> sombre par défaut
+  document.body.classList.toggle("light", isLight);
+  const toggleBtn = document.getElementById("themeToggle");
+  if (toggleBtn) toggleBtn.textContent = isLight ? "🌙" : "☀️";
+}
+
+function bindThemeToggle() {
+  const toggleBtn = document.getElementById("themeToggle");
+  if (!toggleBtn) return;
+  toggleBtn.addEventListener("click", () => {
+    const isLight = document.body.classList.toggle("light");
+    localStorage.setItem("theme", isLight ? "light" : "dark");
+    toggleBtn.textContent = isLight ? "🌙" : "☀️";
+  });
+}
 
 /* ============================================================
    INIT
 ============================================================ */
 async function init() {
+  initTheme();
+  bindThemeToggle();
+
   try {
     const [ideasRes, votesRes] = await Promise.all([
       fetch(API_URL + "?action=ideas&t=" + Date.now()),
@@ -48,7 +74,6 @@ async function init() {
 
   startPolling();
 
-  // Rafraîchit aussi quand l'utilisateur revient sur l'onglet
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshIdeas();
   });
@@ -60,15 +85,13 @@ function startPolling() {
 }
 
 /* ============================================================
-   RAFRAÎCHISSEMENT (récupère les votes des autres utilisateurs
-   ET la vérité serveur sur les votes de cet UUID)
+   RAFRAÎCHISSEMENT
 ============================================================ */
 async function refreshIdeas() {
-  // Si un vote/retrait est en cours pour une idée, on ne touche pas
-  // à son état tant que la requête n'est pas terminée — évite
-  // qu'un refresh automatique n'écrase une mise à jour optimiste
-  // en plein vol et ne crée un état incohérent.
-  if (pendingIds.size > 0) return;
+  // Tant qu'une requête ou une action en attente existe pour une idée,
+  // on ne touche pas à l'état local (évite d'écraser une mise à jour
+  // optimiste en plein vol).
+  if (pendingIds.size > 0 || queuedAction.size > 0) return;
 
   try {
     const [ideasRes, votesRes] = await Promise.all([
@@ -160,10 +183,6 @@ function hasVoted(id) {
   return votedIds.has(Number(id));
 }
 
-function isPending(id) {
-  return pendingIds.has(Number(id));
-}
-
 function renderIdeas() {
   const container = document.getElementById("ideas");
   const emptyState = document.getElementById("emptyState");
@@ -183,7 +202,6 @@ function renderIdeas() {
 
   sorted.forEach(idea => {
     const voted = hasVoted(idea.id);
-    const pending = isPending(idea.id);
 
     const card = document.createElement("div");
     card.className = "card" + (voted ? " voted" : "");
@@ -201,7 +219,6 @@ function renderIdeas() {
         <button
           class="likeButton ${voted ? "voted-btn" : ""}"
           aria-label="${voted ? "Retirer mon vote" : "Voter pour cette idée"}"
-          ${pending ? "disabled" : ""}
         >
           ${voted ? "✔ Voté" : "❤️ J'aime"}
           <span class="like-count">${idea.likes}</span>
@@ -209,11 +226,10 @@ function renderIdeas() {
       </div>
     `;
 
-    // Listener attaché directement sur l'élément créé pour CETTE idée précise
     const btn = card.querySelector(".likeButton");
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      handleCardVote(idea.id, btn);
+      toggleVote(idea.id);
     });
 
     card.addEventListener("click", () => openIdea(idea.id));
@@ -222,56 +238,76 @@ function renderIdeas() {
 }
 
 /* ============================================================
-   UTILITAIRES UI — mise à jour d'un bouton de CARD
+   VOTE — bascule instantanée + file d'attente réseau
+   On ne bloque plus jamais le clic : l'UI réagit immédiatement
+   à chaque clic, et seules les requêtes serveur sont sérialisées
+   en arrière-plan, une par une, pour chaque idée.
 ============================================================ */
-function setCardButtonVoted(button, count) {
-  button.classList.add("voted-btn");
-  button.innerHTML = `✔ Voté <span class="like-count">${count}</span>`;
-  button.setAttribute("aria-label", "Retirer mon vote");
-}
-
-function setCardButtonUnvoted(button, count) {
-  button.classList.remove("voted-btn");
-  button.innerHTML = `❤️ J'aime <span class="like-count">${count}</span>`;
-  button.setAttribute("aria-label", "Voter pour cette idée");
-}
-
-/* Retrouve le bouton de card pour un ideaId donné */
-function getCardButton(id) {
-  const card = document.querySelector(`.card[data-idea-id="${id}"]`);
-  return card ? card.querySelector(".likeButton") : null;
-}
-
-/* ============================================================
-   GESTIONNAIRE VOTE DEPUIS UNE CARD
-   Plus de confirmation : un clic sur "Voté" retire directement
-   le vote, exactement comme un clic sur "J'aime" l'ajoute.
-============================================================ */
-async function handleCardVote(id, button) {
-  if (isPending(id)) return; // requête déjà en cours pour cette idée, on ignore
+function toggleVote(id) {
+  const numId = Number(id);
+  const idea = ideas.find(i => i.id === id);
+  if (!idea) return;
 
   if (hasVoted(id)) {
-    await doUnlike(id);
+    idea.likes = Math.max(0, idea.likes - 1);
+    votedIds.delete(numId);
   } else {
-    await doLike(id);
+    idea.likes++;
+    votedIds.add(numId);
+  }
+
+  updateStats();
+  renderIdeas();
+
+  // Resynchronise le bouton de la modal si elle est ouverte sur cette idée
+  const modal = document.getElementById("modal");
+  if (!modal.classList.contains("hidden")) {
+    const modalBtn = modal.querySelector(".modal-like-btn");
+    if (modalBtn && modalBtn.dataset.ideaId === String(id)) {
+      syncModalButton(id, modalBtn);
+    }
+  }
+
+  // L'action à envoyer au serveur correspond toujours à l'état qu'on
+  // vient d'atteindre côté UI
+  const desired = hasVoted(id) ? "like" : "unlike";
+  queuedAction.set(numId, desired);
+
+  processQueue(numId);
+}
+
+async function processQueue(numId) {
+  if (pendingIds.has(numId)) return; // une requête est déjà en vol, elle relira la queue à la fin
+  const action = queuedAction.get(numId);
+  if (!action) return;
+
+  queuedAction.delete(numId);
+  pendingIds.add(numId);
+
+  try {
+    const response = await fetch(API_URL + "?action=" + action + "&id=" + numId + "&uuid=" + uuid);
+    const result = await response.json();
+
+    if (!result.success) {
+      // Désaccord avec le serveur (ex: déjà voté/retiré ailleurs) -> resynchronise
+      await refreshIdeas();
+    }
+  } catch {
+    alert("Erreur réseau. Veuillez réessayer.");
+    await refreshIdeas();
+  } finally {
+    pendingIds.delete(numId);
+    // Si l'utilisateur a re-cliqué pendant que la requête était en vol,
+    // on envoie immédiatement le nouvel état désiré
+    if (queuedAction.has(numId)) {
+      processQueue(numId);
+    }
   }
 }
 
 /* ============================================================
-   GESTIONNAIRE VOTE DEPUIS LA MODAL
+   MODAL
 ============================================================ */
-async function handleModalVote(id, modalButton) {
-  if (isPending(id)) return; // requête déjà en cours (ex: lancée depuis la card), on ignore
-
-  if (hasVoted(id)) {
-    await doUnlike(id);
-  } else {
-    await doLike(id);
-  }
-  syncModalButton(id, modalButton);
-}
-
-/* Met à jour le bouton modal selon l'état actuel */
 function syncModalButton(id, modalButton) {
   const idea = ideas.find(i => i.id === id);
   if (!idea) return;
@@ -285,128 +321,6 @@ function syncModalButton(id, modalButton) {
   }
 }
 
-/* ============================================================
-   AIDE — bascule l'état "pending" d'un bouton en douceur
-   (via requestAnimationFrame pour laisser le navigateur peindre
-   le changement de texte/classe avant de désactiver le bouton,
-   ce qui évite le petit "saut" visuel ressenti auparavant)
-============================================================ */
-function setPendingState(button, pending) {
-  if (!button) return;
-  if (pending) {
-    requestAnimationFrame(() => { button.disabled = true; });
-  } else {
-    button.disabled = false;
-  }
-}
-
-/* ============================================================
-   LOGIQUE LIKE
-   pendingIds verrouille l'idée pour toute la durée de l'appel,
-   quel que soit l'endroit (card ou modal) qui l'a déclenché.
-============================================================ */
-async function doLike(id) {
-  const numId = Number(id);
-  if (pendingIds.has(numId)) return;
-  pendingIds.add(numId);
-
-  const idea = ideas.find(i => i.id === id);
-  if (!idea) { pendingIds.delete(numId); return; }
-  const previous = idea.likes;
-
-  idea.likes++;
-  votedIds.add(numId);
-  updateStats();
-
-  const cardBtn = getCardButton(id);
-  const card = cardBtn ? cardBtn.closest(".card") : null;
-  if (card) card.classList.add("voted");
-  if (cardBtn) {
-    setCardButtonVoted(cardBtn, idea.likes);
-    setPendingState(cardBtn, true);
-  }
-
-  try {
-    const response = await fetch(API_URL + "?action=like&id=" + id + "&uuid=" + uuid);
-    const result = await response.json();
-
-    if (!result.success) {
-      idea.likes = previous;
-      votedIds.delete(numId);
-      updateStats();
-      if (card) card.classList.remove("voted");
-      if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
-    }
-  } catch {
-    idea.likes = previous;
-    votedIds.delete(numId);
-    updateStats();
-    if (card) card.classList.remove("voted");
-    if (cardBtn) setCardButtonUnvoted(cardBtn, idea.likes);
-    alert("Erreur réseau. Veuillez réessayer.");
-  } finally {
-    pendingIds.delete(numId);
-    const btnNow = getCardButton(id);
-    setPendingState(btnNow, false);
-  }
-}
-
-/* ============================================================
-   LOGIQUE UNLIKE
-============================================================ */
-async function doUnlike(id) {
-  const numId = Number(id);
-  if (pendingIds.has(numId)) return;
-  pendingIds.add(numId);
-
-  const idea = ideas.find(i => i.id === id);
-  if (!idea) { pendingIds.delete(numId); return; }
-  const previous = idea.likes;
-
-  idea.likes = Math.max(0, idea.likes - 1);
-  votedIds.delete(numId);
-  updateStats();
-
-  const cardBtn = getCardButton(id);
-  const card = cardBtn ? cardBtn.closest(".card") : null;
-  if (card) card.classList.remove("voted");
-  if (cardBtn) {
-    setCardButtonUnvoted(cardBtn, idea.likes);
-    setPendingState(cardBtn, true);
-  }
-
-  try {
-    const response = await fetch(API_URL + "?action=unlike&id=" + id + "&uuid=" + uuid);
-    const result = await response.json();
-
-    if (!result.success) {
-      idea.likes = previous;
-      votedIds.add(numId);
-      updateStats();
-      if (card) card.classList.add("voted");
-      if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
-    }
-  } catch {
-    idea.likes = previous;
-    votedIds.add(numId);
-    updateStats();
-    if (card) card.classList.add("voted");
-    if (cardBtn) setCardButtonVoted(cardBtn, idea.likes);
-    alert("Erreur réseau. Veuillez réessayer.");
-  } finally {
-    pendingIds.delete(numId);
-    const btnNow = getCardButton(id);
-    setPendingState(btnNow, false);
-  }
-}
-
-/* ============================================================
-   MODAL
-   On référence toujours l'idée par son id et on relit depuis
-   le tableau `ideas` au moment de l'affichage, pour ne jamais
-   utiliser un objet idea potentiellement obsolète (capturé
-   avant un vote en cours par exemple).
-============================================================ */
 function openIdea(id) {
   const idea = ideas.find(i => i.id === id);
   if (!idea) return;
@@ -432,7 +346,8 @@ function openIdea(id) {
     </div>
     <button
       class="modal-like-btn ${voted ? "voted-btn" : ""}"
-      onclick="handleModalVote(${idea.id}, this)"
+      data-idea-id="${idea.id}"
+      onclick="toggleVote(${idea.id})"
     >
       ${voted
         ? `<span>✔</span> Vous avez voté · ${idea.likes} vote${idea.likes > 1 ? "s" : ""} · cliquer pour retirer`

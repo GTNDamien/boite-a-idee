@@ -8,6 +8,20 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Applique le thème AVANT le rendu pour éviter tout flash visuel
+    (function () {
+      var saved = localStorage.getItem("theme");
+      if (saved === "light") {
+        document.documentElement.classList.add("light-init");
+      }
+    })();
+  </script>
+  <style>
+    /* Le thème clair s'applique sur <body class="light">, on bascule
+       ce flag tôt sur <html> pour éviter le flash puis on le synchronise en JS */
+    html.light-init body { }
+  </style>
 </head>
 <body>
 
@@ -19,15 +33,18 @@
         <h1>💡 La Boîte à Idées</h1>
         <p>Chaque idée peut améliorer l'événement. Alors partage la tienne et vote pour celles qui t'inspirent 🚀</p>
       </div>
-      <div class="hero-stats" id="heroStats">
-        <div class="stat">
-          <span class="stat-number" id="statIdeas">—</span>
-          <span class="stat-label">idées soumises</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-number" id="statVotes">—</span>
-          <span class="stat-label">votes au total</span>
+      <div class="hero-right">
+        <button id="themeToggle" class="theme-toggle" aria-label="Changer de thème">☀️</button>
+        <div class="hero-stats" id="heroStats">
+          <div class="stat">
+            <span class="stat-number" id="statIdeas">—</span>
+            <span class="stat-label">idées soumises</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-number" id="statVotes">—</span>
+            <span class="stat-label">votes au total</span>
+          </div>
         </div>
       </div>
     </header>

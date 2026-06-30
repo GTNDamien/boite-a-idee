@@ -9,10 +9,40 @@
 
 :root {
   --blue:       #2563EB;
-  --blue-light: #EFF6FF;
+  --blue-light: #1E293B;
   --blue-dark:  #1D4ED8;
   --indigo:     #1E1B4B;
-  --green:      #059669;
+  --green:      #10B981;
+  --green-light:#0F2A20;
+  --gray-50:    #0B0F19;
+  --gray-100:   #151B2B;
+  --gray-200:   #232B3D;
+  --gray-400:   #6B7280;
+  --gray-500:   #9CA3AF;
+  --gray-700:   #D1D5DB;
+  --gray-900:   #F3F4F6;
+  --white:      #151B2B;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:  0 4px 16px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.2);
+  --shadow-lg:  0 12px 32px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.2);
+  --shadow-xl:  0 24px 48px rgba(0,0,0,.5), 0 8px 20px rgba(0,0,0,.25);
+  --radius-sm:  10px;
+  --radius-md:  16px;
+  --radius-lg:  24px;
+  --radius-pill:999px;
+
+  --bg: var(--gray-50);
+  --bg-card: var(--gray-100);
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-500);
+  --border: var(--gray-200);
+}
+
+/* ==============================
+   THÈME CLAIR (opt-in via .light sur <body>)
+============================== */
+body.light {
+  --blue-light: #EFF6FF;
   --green-light:#ECFDF5;
   --gray-50:    #F9FAFB;
   --gray-100:   #F3F4F6;
@@ -26,18 +56,21 @@
   --shadow-md:  0 4px 16px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
   --shadow-lg:  0 12px 32px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.05);
   --shadow-xl:  0 24px 48px rgba(0,0,0,.14), 0 8px 20px rgba(0,0,0,.06);
-  --radius-sm:  10px;
-  --radius-md:  16px;
-  --radius-lg:  24px;
-  --radius-pill:999px;
+
+  --bg: var(--gray-50);
+  --bg-card: var(--white);
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-500);
+  --border: var(--gray-200);
 }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: var(--gray-50);
-  color: var(--gray-900);
+  background: var(--bg);
+  color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background-color .25s ease, color .25s ease;
 }
 
 /* ==============================
@@ -51,6 +84,30 @@ body {
 
 @media (max-width: 640px) {
   .container { padding: 20px 16px 60px; }
+}
+
+/* ==============================
+   THEME TOGGLE
+============================== */
+.theme-toggle {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  color: var(--white);
+  border-radius: var(--radius-pill);
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s ease;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(255,255,255,.18);
+  transform: scale(1.08);
 }
 
 /* ==============================
@@ -118,6 +175,13 @@ body {
   max-width: 420px;
 }
 
+.hero-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
 .hero-stats {
   display: flex;
   align-items: center;
@@ -158,6 +222,7 @@ body {
 @media (max-width: 768px) {
   .hero { flex-direction: column; padding: 32px 28px; }
   .hero h1 { font-size: 28px; }
+  .hero-right { width: 100%; justify-content: center; flex-direction: column; }
   .hero-stats { width: 100%; justify-content: center; }
 }
 
@@ -181,15 +246,15 @@ body {
 }
 
 .category {
-  background: var(--white);
+  background: var(--bg-card);
   padding: 9px 18px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: all .2s ease;
   font-size: 13px;
   font-weight: 600;
-  color: var(--gray-700);
-  border: 1.5px solid var(--gray-200);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border);
   user-select: none;
 }
 
@@ -202,7 +267,7 @@ body {
 
 .category.active {
   background: var(--blue);
-  color: var(--white);
+  color: #fff;
   border-color: var(--blue);
   box-shadow: 0 4px 12px rgba(37,99,235,.3);
 }
@@ -220,7 +285,7 @@ body {
 .sort-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--gray-400);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: .05em;
   white-space: nowrap;
@@ -229,8 +294,8 @@ body {
 .sort-buttons {
   display: flex;
   gap: 4px;
-  background: var(--white);
-  border: 1.5px solid var(--gray-200);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-pill);
   padding: 4px;
 }
@@ -241,7 +306,7 @@ body {
   gap: 6px;
   border: none;
   background: transparent;
-  color: var(--gray-500);
+  color: var(--text-secondary);
   padding: 7px 14px;
   border-radius: var(--radius-pill);
   font-size: 12px;
@@ -259,7 +324,7 @@ body {
 
 .sort-btn.active {
   background: var(--blue);
-  color: var(--white);
+  color: #fff;
   box-shadow: 0 2px 8px rgba(37,99,235,.35);
 }
 
@@ -281,10 +346,10 @@ body {
    CARD
 ============================== */
 .card {
-  background-color: var(--white);
+  background-color: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 26px;
-  border: 1.5px solid var(--gray-200);
+  border: 1.5px solid var(--border);
   transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background-color .3s ease;
   cursor: pointer;
   display: flex;
@@ -313,7 +378,7 @@ body {
 .card h2 {
   font-size: 16px;
   font-weight: 700;
-  color: var(--gray-900);
+  color: var(--text-primary);
   line-height: 1.35;
   flex: 1;
 }
@@ -356,10 +421,9 @@ body {
 
 .card p {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--text-secondary);
   line-height: 1.6;
   flex: 1;
-  /* Limit to ~4 lines */
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
@@ -376,7 +440,7 @@ body {
 
 .card-date {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -403,7 +467,7 @@ body {
 
 .likeButton:hover:not(:disabled) {
   background-color: var(--blue);
-  color: var(--white);
+  color: #fff;
   box-shadow: 0 4px 12px rgba(37,99,235,.3);
   transform: scale(1.04);
 }
@@ -411,7 +475,7 @@ body {
 .likeButton.voted-btn {
   border-color: var(--green);
   color: var(--green);
-  cursor: pointer; /* reste cliquable : permet de retirer le vote */
+  cursor: pointer;
 }
 
 .likeButton.voted-btn:hover:not(:disabled) {
@@ -420,8 +484,6 @@ body {
   transform: scale(1.04);
 }
 
-/* État "en cours" : on assombrit/estompe plutôt que de couper net,
-   et on bloque les clics via pointer-events plutôt qu'un saut visuel brutal */
 .likeButton:disabled,
 .likeButton[disabled] {
   opacity: .6;
@@ -449,7 +511,7 @@ body {
 .empty-state {
   text-align: center;
   padding: 80px 20px;
-  color: var(--gray-400);
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -468,7 +530,7 @@ body {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(17, 24, 39, .6);
+  background: rgba(0, 0, 0, .65);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -484,13 +546,14 @@ body {
 .modal-content {
   width: 100%;
   max-width: 640px;
-  background: var(--white);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 40px;
   position: relative;
   animation: pop .2s cubic-bezier(.34,1.56,.64,1);
   max-height: 88vh;
   overflow-y: auto;
+  border: 1.5px solid var(--border);
 }
 
 @keyframes pop {
@@ -502,9 +565,9 @@ body {
   position: absolute;
   top: 18px;
   right: 18px;
-  background: var(--gray-100);
+  background: var(--bg);
   border: none;
-  color: var(--gray-500);
+  color: var(--text-secondary);
   border-radius: 50%;
   width: 36px;
   height: 36px;
@@ -516,8 +579,8 @@ body {
 }
 
 .close-btn:hover {
-  background: var(--gray-200);
-  color: var(--gray-900);
+  background: var(--border);
+  color: var(--text-primary);
 }
 
 .modal-badge {
@@ -536,7 +599,7 @@ body {
 .modal-title {
   font-size: 24px;
   font-weight: 800;
-  color: var(--gray-900);
+  color: var(--text-primary);
   line-height: 1.25;
   margin-bottom: 6px;
   letter-spacing: -.02em;
@@ -544,7 +607,7 @@ body {
 
 .modal-divider {
   height: 1px;
-  background: var(--gray-200);
+  background: var(--border);
   margin: 24px 0;
 }
 
@@ -557,13 +620,13 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .08em;
-  color: var(--gray-400);
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .section p {
   font-size: 15px;
-  color: var(--gray-700);
+  color: var(--text-primary);
   line-height: 1.65;
 }
 
@@ -575,7 +638,7 @@ body {
   width: 100%;
   border: none;
   background-color: var(--blue);
-  color: var(--white);
+  color: #fff;
   padding: 16px;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -594,7 +657,7 @@ body {
 
 .modal-like-btn.voted-btn {
   background-color: var(--green);
-  cursor: pointer; /* reste cliquable : permet de retirer le vote */
+  cursor: pointer;
 }
 
 .modal-like-btn.voted-btn:hover:not(:disabled) {
