@@ -114,7 +114,7 @@ body {
 }
 
 .logo {
-  height: 190px;
+  height: 230px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -122,15 +122,15 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .logo { height: 150px; }
+  .logo { height: 190px; }
 }
 
 @media (max-width: 768px) {
-  .logo { height: 110px; }
+  .logo { height: 140px; }
 }
 
 @media (max-width: 480px) {
-  .logo { height: 84px; }
+  .logo { height: 105px; }
 }
 
 .hero-tag {
