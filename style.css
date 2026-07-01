@@ -113,6 +113,14 @@ body {
   border-bottom: 1.5px dashed var(--border);
 }
 
+.logo {
+  height: 48px;
+  width: 48px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
 .hero-tag {
   display: inline-flex;
   align-items: center;
