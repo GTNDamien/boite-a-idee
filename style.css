@@ -114,7 +114,7 @@ body {
 }
 
 .logo {
-  height: 100px;
+  height: 150px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
