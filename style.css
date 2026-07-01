@@ -106,33 +106,23 @@ body {
 .hero {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;   /* au lieu de flex-end */
   gap: 32px;
   padding-bottom: 36px;
   margin-bottom: 36px;
   border-bottom: 1.5px dashed var(--border);
-  min-height: 300px;
+  /* min-height: 300px;  <- à supprimer ou fortement réduire */
 }
-
 .logo {
-  height: 280px;
+  height: 160px;   /* au lieu de 280px */
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
-  align-self: flex-end;
+  align-self: center;
 }
-
-@media (max-width: 1024px) {
-  .logo { height: 200px; }
-}
-
-@media (max-width: 768px) {
-  .logo { height: 140px; }
-}
-
-@media (max-width: 480px) {
-  .logo { height: 100px; }
-}
+@media (max-width: 1024px) { .logo { height: 130px; } }
+@media (max-width: 768px)  { .logo { height: 100px; } }
+@media (max-width: 480px)  { .logo { height: 80px; } }
 
 .hero-tag {
   display: inline-flex;
