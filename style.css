@@ -111,10 +111,11 @@ body {
   padding-bottom: 36px;
   margin-bottom: 36px;
   border-bottom: 1.5px dashed var(--border);
+  min-height: 220px;  /* ← ajoute cette ligne */
 }
 
 .logo {
-  height: 160px;
+  height: 200px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -122,15 +123,15 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .logo { height: 120px; }
+  .logo { height: 160px; }
 }
 
 @media (max-width: 768px) {
-  .logo { height: 90px; }
+  .logo { height: 110px; }
 }
 
 @media (max-width: 480px) {
-  .logo { height: 65px; }
+  .logo { height: 80px; }
 }
 
 .hero-tag {
