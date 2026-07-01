@@ -114,22 +114,23 @@ body {
 }
 
 .logo {
-  height: 150px;
+  height: 160px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+  align-self: center;
+}
+
+@media (max-width: 1024px) {
+  .logo { height: 120px; }
 }
 
 @media (max-width: 768px) {
-  .logo {
-    height: 70px;
-  }
+  .logo { height: 90px; }
 }
 
 @media (max-width: 480px) {
-  .logo {
-    height: 50px;
-  }
+  .logo { height: 65px; }
 }
 
 .hero-tag {
